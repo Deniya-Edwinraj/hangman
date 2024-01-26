@@ -1,128 +1,73 @@
-const wordEl = document.getElementById('word');
-const wrongLettersEl = document.getElementById('wrong-letters');
-const playAgainBtn = document.getElementById('play-button');
-const popup = document.getElementById('popup-container');
-const notification = document.getElementById('notification-container');
-const finalMessage = document.getElementById('final-message');
-const finalMessageRevealWord = document.getElementById('final-message-reveal-word');
+const wordDisplay = document.querySelector(".word-display");
+const guessesText = document.querySelector(".guesses-text b");
+const keyboardDiv = document.querySelector(".keyboard");
+const hangmanImage = document.querySelector(".hangman-box img");
+const gameModal = document.querySelector(".game-modal");
+const playAgainBtn = gameModal.querySelector("button");
 
-const figureParts = document.querySelectorAll('.figure-part');
+// Initializing game variables
+let currentWord, correctLetters, wrongGuessCount;
+const maxGuesses = 6;
 
-const words = ['application', 'programming', 'interface', 'wizard'];
-
-let selectedWord = words[Math.floor(Math.random() * words.length)];
-
-let playable = true;
-
-const correctLetters = [];
-const wrongLetters = [];
-
-// Show hidden word
-function displayWord() {
-	wordEl.innerHTML = `
-    ${selectedWord
-			.split('')
-			.map(
-				letter => `
-          <span class="letter">
-            ${correctLetters.includes(letter) ? letter : ''}
-          </span>
-        `
-			)
-			.join('')}
-  `;
-
-	const innerWord = wordEl.innerText.replace(/[ \n]/g, '');
-
-	if (innerWord === selectedWord) {
-		finalMessage.innerText = 'Congratulations! You won! 😃';
-		finalMessageRevealWord.innerText = '';
-		popup.style.display = 'flex';
-
-		playable = false;
-	}
+const resetGame = () => {
+    // Ressetting game variables and UI elements
+    correctLetters = [];
+    wrongGuessCount = 0;
+    hangmanImage.src = "images/hangman-0.svg";
+    guessesText.innerText = `${wrongGuessCount} / ${maxGuesses}`;
+    wordDisplay.innerHTML = currentWord.split("").map(() => `<li class="letter"></li>`).join("");
+    keyboardDiv.querySelectorAll("button").forEach(btn => btn.disabled = false);
+    gameModal.classList.remove("show");
 }
 
-// Update the wrong letters
-function updateWrongLettersEl() {
-	// Display wrong letters
-	wrongLettersEl.innerHTML = `
-    ${wrongLetters.length > 0 ? '<p>Wrong</p>' : ''}
-    ${wrongLetters.map(letter => `<span>${letter}</span>`)}
-  `;
-
-	// Display parts
-	figureParts.forEach((part, index) => {
-		const errors = wrongLetters.length;
-
-		if (index < errors) {
-			part.style.display = 'block';
-		} else {
-			part.style.display = 'none';
-		}
-	});
-
-	// Check if lost
-	if (wrongLetters.length === figureParts.length) {
-		finalMessage.innerText = 'Unfortunately you lost. 😕';
-		finalMessageRevealWord.innerText = `...the word was: ${selectedWord}`;
-		popup.style.display = 'flex';
-
-		playable = false;
-	}
+const getRandomWord = () => {
+    // Selecting a random word and hint from the wordList
+    const { word, hint } = wordList[Math.floor(Math.random() * wordList.length)];
+    currentWord = word; // Making currentWord as random word
+    document.querySelector(".hint-text b").innerText = hint;
+    resetGame();
 }
 
-// Show notification
-function showNotification() {
-	notification.classList.add('show');
-
-	setTimeout(() => {
-		notification.classList.remove('show');
-	}, 2000);
+const gameOver = (isVictory) => {
+    // After game complete.. showing modal with relevant details
+    const modalText = isVictory ? `You found the word:` : 'The correct word was:';
+    gameModal.querySelector("img").src = `images/${isVictory ? 'victory' : 'lost'}.gif`;
+    gameModal.querySelector("h4").innerText = isVictory ? 'Congrats!' : 'Game Over!';
+    gameModal.querySelector("p").innerHTML = `${modalText} <b>${currentWord}</b>`;
+    gameModal.classList.add("show");
 }
 
-// Keydown letter press
-window.addEventListener('keydown', e => {
-	if (playable) {
-		if (e.keyCode >= 65 && e.keyCode <= 90) {
-			const letter = e.key.toLowerCase();
+const initGame = (button, clickedLetter) => {
+    // Checking if clickedLetter is exist on the currentWord
+    if(currentWord.includes(clickedLetter)) {
+        // Showing all correct letters on the word display
+        [...currentWord].forEach((letter, index) => {
+            if(letter === clickedLetter) {
+                correctLetters.push(letter);
+                wordDisplay.querySelectorAll("li")[index].innerText = letter;
+                wordDisplay.querySelectorAll("li")[index].classList.add("guessed");
+            }
+        });
+    } else {
+        // If clicked letter doesn't exist then update the wrongGuessCount and hangman image
+        wrongGuessCount++;
+        hangmanImage.src = `images/hangman-${wrongGuessCount}.svg`;
+    }
+    button.disabled = true; // Disabling the clicked button so user can't click again
+    guessesText.innerText = `${wrongGuessCount} / ${maxGuesses}`;
 
-			if (selectedWord.includes(letter)) {
-				if (!correctLetters.includes(letter)) {
-					correctLetters.push(letter);
+    // Calling gameOver function if any of these condition meets
+    if(wrongGuessCount === maxGuesses) return gameOver(false);
+    if(correctLetters.length === currentWord.length) return gameOver(true);
+}
 
-					displayWord();
-				} else {
-					showNotification();
-				}
-			} else {
-				if (!wrongLetters.includes(letter)) {
-					wrongLetters.push(letter);
+// Creating keyboard buttons and adding event listeners
+for (let i = 97; i <= 122; i++) {
+    const button = document.createElement("button");
+    button.innerText = String.fromCharCode(i);
+    keyboardDiv.appendChild(button);
+    button.addEventListener("click", (e) => initGame(e.target, String.fromCharCode(i)));
+}
 
-					updateWrongLettersEl();
-				} else {
-					showNotification();
-				}
-			}
-		}
-	}
-});
-
-// Restart game and play again
-playAgainBtn.addEventListener('click', () => {
-	playable = true;
-
-	//  Empty arrays
-	correctLetters.splice(0);
-	wrongLetters.splice(0);
-
-	selectedWord = words[Math.floor(Math.random() * words.length)];
-
-	displayWord();
-
-	updateWrongLettersEl();
-
-	popup.style.display = 'none';
-});
-
-displayWord();
+getRandomWord();
+playAgainBtn.addEventListener("click", getRandomWord);
